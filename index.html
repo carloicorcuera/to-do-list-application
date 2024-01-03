@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" integrity="sha384-xOolHFLEh07PJGoPkLv1IbcEPTNtaed2xpHsD9ESMhqIYd0nLMwNLD69Npy4HI+N" crossorigin="anonymous">
+    <title>Tasks List</title>
+</head>
+<body class="bg-light">
+
+    <div class="container my-4">
+        <h1 class="text-center mb-4">To Do List Application</h1>
+
+        <hr>
+
+        <!-- Add Button to trigger Modal -->
+        <div class="d-flex justify-content-center">
+            <button class="btn btn-primary mb-4" data-toggle="modal" data-target="#addTaskModal">
+                Add New Task
+            </button>
+        </div>
+
+        <div id="tasks-container" class="row justify-content-center">
+            <!-- Spinner -->
+            <div class="spinner-border text-primary" role="status" id="loading-spinner">
+                <span class="sr-only">Loading...</span>
+            </div>
+            <!-- Tasks will be loaded here -->
+        </div>
+
+        <!-- Modal Structure for Add Task-->
+        <div class="modal fade" id="addTaskModal" tabindex="-1" role="dialog" aria-labelledby="addTaskModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addTaskModalLabel">Add New Task</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Form inside Modal -->
+                <form id="addTaskForm">
+                <div class="form-group">
+                    <label for="taskTitle">Title</label>
+                    <input type="text" class="form-control" id="taskTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="taskAuthor">Author</label>
+                    <input type="text" class="form-control" id="taskAuthor" required>
+                </div>
+                <div class="form-group">
+                    <label for="taskDescription">Task</label>
+                    <textarea class="form-control" id="taskDescription" rows="3" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit</button>
+                </form>
+            </div>
+            </div>
+        </div>
+        </div>
+
+        <!-- Modal Structure for Update Task-->
+        <div class="modal fade" id="editTaskModal" tabindex="-1" role="dialog" aria-labelledby="editTaskModalLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editTaskModalLabel">Edit Task</h5> <!-- Corrected title -->
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Form inside Modal -->
+                        <form id="editTaskForm">
+                            <div class="form-group">
+                                <label for="editTaskTitle">Title</label>
+                                <input type="text" class="form-control" id="editTaskTitle" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="editTaskAuthor">Author</label>
+                                <input type="text" class="form-control" id="editTaskAuthor" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="editTaskDescription">Task</label>
+                                <textarea class="form-control" id="editTaskDescription" rows="3" required></textarea>
+                            </div>
+                            <input type="hidden" id="editingTaskId"> <!-- Hidden field for task ID -->
+                            <button type="submit" class="btn btn-primary">Update Task</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+                
+        <!-- Pagination Controls -->
+        <nav aria-label="Page navigation example" class="mt-4">
+            <ul class="pagination justify-content-center" id="pagination">
+                <!-- Pagination will be dynamically inserted here -->
+            </ul>
+        </nav>
+
+    </div>
+
+    <script>
+        const baseURL = 'https://to-do-list-app-bfv1.onrender.com';
+        let currentPage = 1;
+        const tasksPerPage = 5;
+        let allTasks = []; // All tasks will be stored here
+
+        // Start of Retrieve Function
+        async function fetchAllTasks() {
+            try {
+                const response = await fetch(`${baseURL}/tasks/all`);
+                const data = await response.json();
+                allTasks = data.tasks; // assuming the response has a tasks array
+                displayPage(currentPage); // Display the first page initially
+                updatePagination(); // Update pagination controls
+                document.getElementById('loading-spinner').style.display = 'none'; // Hide Spinner
+            } catch (error) {
+                console.error('Error fetching tasks:', error);
+                document.getElementById('loading-spinner').style.display = 'none'; // Hide Spinner
+                document.getElementById('tasks-container').innerHTML = '<p class="text-danger text-center">Error fetching tasks.</p>';
+            }
+        }
+
+        function displayPage(page) {
+            const startIndex = (page - 1) * tasksPerPage;
+            const endIndex = startIndex + tasksPerPage;
+            const tasksToShow = allTasks.slice(startIndex, endIndex);
+
+            const tasksHtml = tasksToShow.map(task => 
+                `<div class="col-12 col-md-6 col-lg-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">${task.title}</h5>
+                            <h6 class="card-subtitle mb-2 text-muted">Authored By: ${task.author}</h6>
+                            <p class="card-text">${task.task}</p>
+                            <button onclick="openEditModal('${task._id}')" class="btn btn-primary">Edit</button>
+                            <button onclick="archiveTask('${task._id}')" class="btn btn-danger">Delete</button>
+                        </div>
+                    </div>
+                </div>`
+            ).join('');
+
+            document.getElementById('tasks-container').innerHTML = tasksHtml;
+        };
+        // End of Retrieve Function
+
+        // Start of Pagination Function
+        function updatePagination() {
+            const totalPages = Math.ceil(allTasks.length / tasksPerPage);
+            const pagination = document.getElementById('pagination');
+            pagination.innerHTML = ''; // Clear existing pagination buttons
+            
+            for (let page = 1; page <= totalPages; page++) {
+                pagination.innerHTML += 
+                `<li class="page-item ${page === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="navigateToPage(${page})">${page}</a>
+                </li>`;
+            }
+        }
+
+        function navigateToPage(page) {
+            currentPage = page;
+            displayPage(page);
+            updatePagination();
+        };
+        // End of Pagination Function
+
+        // Start of Delete Function
+        async function archiveTask(taskId) {
+            try {
+                const response = await fetch(`${baseURL}/tasks/delete/${taskId}`, {
+                    method: 'DELETE',
+                });
+
+                const data = await response.json();
+                
+                if(response.status === 200) {
+                    console.log(data.message); // Or any other indication
+                    allTasks = allTasks.filter(task => task._id !== taskId); // Remove task from allTasks
+                    displayPage(currentPage); // Refresh the current page display
+                    updatePagination(); // Update the pagination
+                } else {
+                    console.error('Failed to archive task:', data.message);
+                }
+            } catch (error) {
+                console.error('Error in archiving task:', error);
+            }
+        };
+        // End of Delete Function
+
+        // Start of Add Function
+        document.getElementById('addTaskForm').addEventListener('submit', async function(event) {
+        event.preventDefault(); // Prevent the default form submission
+
+        // Get values from form
+        const title = document.getElementById('taskTitle').value;
+        const author = document.getElementById('taskAuthor').value;
+        const task = document.getElementById('taskDescription').value;
+
+        try {
+            const response = await fetch(`${baseURL}/tasks/create-task`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ title, author, task })
+            });
+
+            const data = await response.json();
+
+            if (response.status === 201) {
+            console.log('Task added:', data);
+            $('#addTaskModal').modal('hide'); // Hide the modal
+            fetchAllTasks(); // Reload the tasks
+            } else {
+            console.error('Failed to add task:', data);
+            }
+        } catch (error) {
+            console.error('Error adding task:', error);
+        }
+        });
+        // End of Add Function
+
+        // Start of Edit Function
+        function openEditModal(taskId) {
+            const taskToEdit = allTasks.find(task => task._id === taskId);
+
+            // Set form values to existing task data
+            document.getElementById('editTaskTitle').value = taskToEdit.title;
+            document.getElementById('editTaskAuthor').value = taskToEdit.author;
+            document.getElementById('editTaskDescription').value = taskToEdit.task;
+
+            // Set hidden field value to task ID
+            document.getElementById('editingTaskId').value = taskId;
+
+            // Open the modal
+            $('#editTaskModal').modal('show');
+        }
+
+        document.getElementById('editTaskForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const taskId = document.getElementById('editingTaskId').value;
+            const title = document.getElementById('editTaskTitle').value;
+            const author = document.getElementById('editTaskAuthor').value;
+            const task = document.getElementById('editTaskDescription').value;
+
+            try {
+                const response = await fetch(`${baseURL}/tasks/update/${taskId}`, {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ title, author, task })
+                });
+
+                const data = await response.json();
+
+                if (response.status === 200) {
+                    $('#editTaskModal').modal('hide');
+                    fetchAllTasks(); // Consider updating the single task for efficiency
+                } else {
+                    console.error('Failed to update task:', data);
+                }
+            } catch (error) {
+                console.error('Error updating task:', error);
+            }
+        });
+        // End of Edit Function
+
+        fetchAllTasks(); // Fetch all tasks when the page loads
+    </script>
+
+    <!-- Start of Bootstrap -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-Fy6S3B9q64WdZWQUiU+q4/2Lc9npb8tCaSX9FK7E8HnRr0Jz8D6OP9dO5Vg3Q9ct" crossorigin="anonymous"></script>
+    <!-- End of Bootstrap -->
+
+</body>
+</html>
