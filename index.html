@@ -55,6 +55,14 @@
                     <label for="taskDescription">Task</label>
                     <textarea class="form-control" id="taskDescription" rows="3" required></textarea>
                 </div>
+                <div class="form-group">
+                    <label for="fileUpload">Upload File</label>
+                    <input type="file" class="form-control-file" id="fileUpload">
+                </div>
+                <div class="form-group">
+                    <label for="imageURL">Image URL</label>
+                    <input type="url" class="form-control" id="url">
+                </div>
                 <button type="submit" class="btn btn-primary">Submit</button>
                 </form>
             </div>
@@ -67,7 +75,7 @@
             <div class="modal-dialog" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="editTaskModalLabel">Edit Task</h5> <!-- Corrected title -->
+                        <h5 class="modal-title" id="editTaskModalLabel">Edit Task</h5>
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
                         </button>
@@ -87,6 +95,16 @@
                                 <label for="editTaskDescription">Task</label>
                                 <textarea class="form-control" id="editTaskDescription" rows="3" required></textarea>
                             </div>
+                            <!-- Adding File Upload field -->
+                            <div class="form-group">
+                                <label for="editFileUpload">Upload File</label>
+                                <input type="file" class="form-control-file" id="editFileUpload">
+                            </div>
+                            <!-- Adding Image URL field -->
+                            <div class="form-group">
+                                <label for="editImageURL">Image URL</label>
+                                <input type="url" class="form-control" id="editImageURL">
+                            </div>
                             <input type="hidden" id="editingTaskId"> <!-- Hidden field for task ID -->
                             <button type="submit" class="btn btn-primary">Update Task</button>
                         </form>
@@ -94,6 +112,7 @@
                 </div>
             </div>
         </div>
+
                 
         <!-- Pagination Controls -->
         <nav aria-label="Page navigation example" class="mt-4">
@@ -130,14 +149,17 @@
             const startIndex = (page - 1) * tasksPerPage;
             const endIndex = startIndex + tasksPerPage;
             const tasksToShow = allTasks.slice(startIndex, endIndex);
-
-            const tasksHtml = tasksToShow.map(task => 
+            
+            const tasksHtml = tasksToShow.map(task =>
                 `<div class="col-12 col-md-6 col-lg-4 mb-3">
-                    <div class="card h-100">
+                    <div class="card">
                         <div class="card-body">
                             <h5 class="card-title">${task.title}</h5>
                             <h6 class="card-subtitle mb-2 text-muted">Authored By: ${task.author}</h6>
-                            <p class="card-text">${task.task}</p>
+                            <p class="card-text">${task.task}</p> <br/>
+                            ${task.imageURL ? `<img src="${task.imageURL}" class="card-img-top img-fluid" alt="Task Image"> <br/>` : ''} 
+                            ${task.file ? `<a href="${task.file}" class="d-block mt-2">View File</a> <br/>` : ''}
+                            <br/>
                             <button onclick="openEditModal('${task._id}')" class="btn btn-primary">Edit</button>
                             <button onclick="archiveTask('${task._id}')" class="btn btn-danger">Delete</button>
                         </div>
@@ -146,7 +168,8 @@
             ).join('');
 
             document.getElementById('tasks-container').innerHTML = tasksHtml;
-        };
+        }
+
         // End of Retrieve Function
 
         // Start of Pagination Function
@@ -195,34 +218,37 @@
 
         // Start of Add Function
         document.getElementById('addTaskForm').addEventListener('submit', async function(event) {
-        event.preventDefault(); // Prevent the default form submission
+            event.preventDefault(); // Prevent the default form submission
 
-        // Get values from form
-        const title = document.getElementById('taskTitle').value;
-        const author = document.getElementById('taskAuthor').value;
-        const task = document.getElementById('taskDescription').value;
-
-        try {
-            const response = await fetch(`${baseURL}/tasks/create-task`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ title, author, task })
-            });
-
-            const data = await response.json();
-
-            if (response.status === 201) {
-            console.log('Task added:', data);
-            $('#addTaskModal').modal('hide'); // Hide the modal
-            fetchAllTasks(); // Reload the tasks
-            } else {
-            console.error('Failed to add task:', data);
+            // Create FormData object and append form fields and file
+            const formData = new FormData();
+            formData.append('title', document.getElementById('taskTitle').value);
+            formData.append('author', document.getElementById('taskAuthor').value);
+            formData.append('task', document.getElementById('taskDescription').value);
+            const fileField = document.getElementById('fileUpload');
+            if (fileField.files.length > 0) {  // Append file only if selected
+                formData.append('file', fileField.files[0]);
             }
-        } catch (error) {
-            console.error('Error adding task:', error);
-        }
+
+            try {
+                const response = await fetch(`${baseURL}/tasks/create-task`, {
+                    method: 'POST',
+                    // Don't set 'Content-Type': 'application/json', FormData will set it for you
+                    body: formData  // Send the FormData object
+                });
+
+                const data = await response.json();
+
+                if (response.status === 201) {
+                    console.log('Task added:', data);
+                    $('#addTaskModal').modal('hide'); // Hide the modal
+                    fetchAllTasks(); // Reload the tasks, assuming this is a function you have defined
+                } else {
+                    console.error('Failed to add task:', data);
+                }
+            } catch (error) {
+                console.error('Error adding task:', error);
+            }
         });
         // End of Add Function
 
@@ -234,6 +260,7 @@
             document.getElementById('editTaskTitle').value = taskToEdit.title;
             document.getElementById('editTaskAuthor').value = taskToEdit.author;
             document.getElementById('editTaskDescription').value = taskToEdit.task;
+            document.getElementById('editImageURL').value = taskToEdit.imageURL || '';
 
             // Set hidden field value to task ID
             document.getElementById('editingTaskId').value = taskId;
@@ -248,12 +275,24 @@
             const title = document.getElementById('editTaskTitle').value;
             const author = document.getElementById('editTaskAuthor').value;
             const task = document.getElementById('editTaskDescription').value;
+            const imageURL = document.getElementById('editImageURL').value;  // New field
+
+            // Prepare FormData for file upload
+            const formData = new FormData();
+            formData.append('title', title);
+            formData.append('author', author);
+            formData.append('task', task);
+            formData.append('imageURL', imageURL);  // New field
+            const fileField = document.getElementById('editFileUpload');
+            if (fileField.files.length > 0) {
+                formData.append('file', fileField.files[0]);  // New field
+            }
 
             try {
                 const response = await fetch(`${baseURL}/tasks/update/${taskId}`, {
                     method: 'PATCH',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ title, author, task })
+                    // Omit 'Content-Type': 'application/json', as FormData will set the content type to 'multipart/form-data'
+                    body: formData
                 });
 
                 const data = await response.json();
